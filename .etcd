@@ -1,0 +1,26 @@
+# ETCD IMAGE
+ETCD_IMAGE_VERSION  ?= bitnami/etcd:3.5.4
+ETCD_REVERSION_SIZE ?= 1000
+
+# ETCD runtime
+ENV_ETCD_AUTH ?= --user root:123456
+ENV_ETCD_DATA_FOLDER ?= $(CURDIR)/data
+ENV_ETCD_CLUSTER_STATE ?= new
+ENV_ETCD_CLUSTER_TOKEN ?= etcd-cluster
+ENV_ETCD_CLUSTER_MEMBERS ?= --endpoints $(ETCD_NODE_01):2379
+ENV_ETCD_CLUSTER_ENDPOINTS ?= --endpoints $(ETCD_NODE_01):2379,$(ETCD_NODE_02):2379,$(ETCD_NODE_03):2379,$(ETCD_NODE_LEARNER):2379
+
+# ETCD instance config
+ETCD_NODE_NAME ?= etcd-learner
+
+# ETCD cluster config
+ETCD_NODE_01 ?= 10.64.152.17
+ETCD_NODE_02 ?= 10.74.78.49
+ETCD_NODE_03 ?= 10.74.16.11
+ETCD_NODE_LEARNER ?= 10.76.140.71
+
+# ETCD restore config
+ENV_ETCD_RESTORE_CONFIG ?= --name $(ETCD_NODE_NAME) --data-dir=/opt/bitnami/etcd/restore/$(ETCD_NODE_NAME)
+ENV_ETCD_RESTORE_CONFIG += --initial-cluster etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380
+ENV_ETCD_RESTORE_CONFIG += --initial-cluster-token $(ENV_ETCD_CLUSTER_TOKEN)
+ENV_ETCD_RESTORE_CONFIG += --initial-advertise-peer-urls http://$(ETCD_NODE_NAME):2380

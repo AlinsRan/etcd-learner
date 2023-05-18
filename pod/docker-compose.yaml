@@ -1,0 +1,91 @@
+version: "3"
+
+x-config:
+  etcd_image: &etcd_image ${ETCD_IMAGE_VERSION}
+  # `etcd_hosts` used for etcd cluster host connect
+  etcd_hosts: &etcd_hosts
+    - "etcd1:${ETCD_NODE_01}"
+    - "etcd2:${ETCD_NODE_02}"
+    - "etcd3:${ETCD_NODE_03}"
+    - "etcd-learner:${ETCD_NODE_LEARNER}"
+  # `etcd_volumes` used for mount common volume
+  etcd_volumes: &etcd_volumes
+    # replace original entrypoint with custom entrypoint
+    - ./pod/etcd/entrypoint.sh:/opt/bitnami/scripts/etcd/entrypoint.sh
+    - ./pod/etcd/libetcd.sh:/opt/bitnami/scripts/libetcd.sh
+    # optional data volume
+    - ${ENV_ETCD_DATA_FOLDER}/certs:/bitnami/etcd/certs
+    - ${ENV_ETCD_DATA_FOLDER}/data:/bitnami/etcd/data
+    - ${ENV_ETCD_DATA_FOLDER}/restore:/bitnami/etcd/restore
+    - ${ENV_ETCD_DATA_FOLDER}/snapshot:/bitnami/etcd/snapshot
+  # etcd env snippet
+  etcd_env_debug: &etcd_env_debug
+    BITNAMI_DEBUG: "true"
+  etcd_env_basic: &etcd_env_basic
+    ETCD_LISTEN_CLIENT_URLS: "http://0.0.0.0:2379"
+    ETCD_LISTEN_PEER_URLS: "http://0.0.0.0:2380"
+    ALLOW_NONE_AUTHENTICATION: "yes"
+    ETCD_DATA_DIR: /bitnami/etcd/data
+  etcd_env_auto_compact: &etcd_env_auto_compact
+    ETCD_AUTO_COMPACTION_MODE: periodic
+    # auto compact reversion every 6h
+    ETCD_AUTO_COMPACTION_RETENTION: 6h
+  etcd_env_mtls: &etcd_env_mtls
+    ETCD_CLIENT_CERT_AUTH: "true"
+    ETCD_TRUSTED_CA_FILE: "/opt/etcd/ssl/ca.pem"
+  etcd_env_tls: &etcd_env_tls
+    ETCD_CERT_FILE: "/bitnami/etcd/certs/server.pem"
+    ETCD_KEY_FILE: "/bitnami/etcd/certs/server-key.pem"
+    ETCD_LISTEN_CLIENT_URLS: "https://0.0.0.0:2379"
+    ETCD_ADVERTISE_CLIENT_URLS: "https://0.0.0.0:2379"
+  etcd_env_cluster: &etcd_env_cluster
+    ETCD_INITIAL_CLUSTER_STATE: "new"
+    ETCD_INITIAL_CLUSTER_TOKEN: "${ENV_ETCD_CLUSTER_TOKEN}"
+    #ETCD_INITIAL_CLUSTER: "etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380"
+    ETCD_INITIAL_ADVERTISE_PEER_URLS: "http://10.76.140.71:2380"
+    ETCD_ADVERTISE_CLIENT_URLS: "http://10.76.140.71:2379"
+    ETCD_INITIAL_CLUSTER: "etcd-learner=http://etcd-learner:2380"
+  etcd_env_peer_tls: &etcd_env_peer_tls
+    ETCD_PEER_CLIENT_CERT_AUTH: "true"
+    ETCD_INITIAL_CLUSTER: "etcd1=https://etcd1:2380,etcd2=https://etcd2:2380,etcd3=https://etcd3:2380"
+    ETCD_LISTEN_PEER_URLS: "https://0.0.0.0:2380"
+    ETCD_PEER_TRUSTED_CA_FILE: "/bitnami/etcd/certs/ca.pem"
+    ETCD_PEER_CERT_FILE: "/bitnami/etcd/certs/server.pem"
+    ETCD_PEER_KEY_FILE: "/bitnami/etcd/certs/server-key.pem"
+  etcd_env_client_tls: &etcd_env_client_tls
+    ETCD_CLIENT_CERT_FILE: "/bitnami/etcd/certs/client.pem"
+    ETCD_CLIENT_KEY_FILE: "/bitnami/etcd/certs/client-key.pem"
+  etcd_env_cluster_learner: &etcd_env_cluster_learner
+    ETCD_EXTRA_FLAGS: "--learner"
+    ENV_ETCD_CLUSTER_STATE: "existing"
+    ETCD_ADVERTISE_CLIENT_URLS: "http://${ETCD_NODE_LEARNER}:2379"
+    ETCD_INITIAL_ADVERTISE_PEER_URLS: "http://10.76.140.71:2380"
+    ETCD_INITIAL_CLUSTER_TOKEN: "${ENV_ETCD_CLUSTER_TOKEN}"
+    ETCD_INITIAL_CLUSTER: "etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380,etcd-learner=http://etcd-learner:2380"
+    ETCD_ACTIVE_ENDPOINTS: "http://etcd1:2379,http://etcd2:2379,http://etcd3:2379"
+  etcd_env_restore: &etcd_env_restore
+    #ETCD_DISASTER_RECOVERY: "yes"
+    ETCD_START_FROM_SNAPSHOT: "yes"
+    ETCD_INIT_SNAPSHOTS_DIR: /bitnami/etcd/restore
+    ETCD_INIT_SNAPSHOT_FILENAME: target.bak
+
+x-etcd-common-config: &x-etcd-common-config
+#  <<: *etcd_env_debug
+#  <<: [ *etcd_env_basic,*etcd_env_auto_compact,*etcd_env_cluster_learner ]
+  <<: [  *etcd_env_basic, *etcd_env_restore, *etcd_env_cluster]
+#  <<: *etcd_env_tls
+#  <<: *etcd_env_mtls
+#  <<: *etcd_env_cluster
+#  <<: *etcd_env_client_tls
+#  <<: *etcd_env_peer_tls
+#  <<: *etcd_env_restore
+
+services:
+  etcd:
+    image: *etcd_image
+    environment:
+      <<: *x-etcd-common-config
+      ETCD_NAME: ${ETCD_NODE_NAME}
+    volumes: *etcd_volumes
+    extra_hosts: *etcd_hosts
+    network_mode: host
