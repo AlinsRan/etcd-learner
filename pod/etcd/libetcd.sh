@@ -614,7 +614,7 @@ etcd_initialize() {
             if [[ -f "${ETCD_INIT_SNAPSHOTS_DIR}/${ETCD_INIT_SNAPSHOT_FILENAME}" ]]; then
                 info "Restoring snapshot before initializing etcd cluster"
                 local -a restore_args=("--data-dir" "$ETCD_DATA_DIR")
-                if [[ ${#initial_members[@]} -gt 1 ]]; then
+                if [[ ${#initial_members[@]} -gt 0 ]]; then
                     ETCD_INITIAL_CLUSTER="$(recalculate_initial_cluster)"
                     export ETCD_INITIAL_CLUSTER
                     [[ -f "$ETCD_CONF_FILE" ]] && etcd_conf_write "initial-cluster" "$ETCD_INITIAL_CLUSTER"
